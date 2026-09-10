@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated Atlantis AI operator profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["operator", "commander", "auditor"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "CloudMission": {
+      "title": "CloudMission",
+      "description": "Episodic mission recorded in the cloud",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "sector": { "type": "string" },
+        "topology": { "type": "string" },
+        "status": { "type": "string" },
+        "result": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "executionTimeMs": { "type": "number" },
+        "nodesCount": { "type": "number" },
+        "curiosityFactor": { "type": "string" }
+      },
+      "required": ["title", "sector", "topology", "status", "timestamp", "userId"]
+    },
+    "DebriefMessage": {
+      "title": "DebriefMessage",
+      "description": "Supervisor debrief interaction message",
+      "type": "object",
+      "properties": {
+        "missionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "sender": { "type": "string", "enum": ["operator", "supervisor"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "modelTier": { "type": "string" }
+      },
+      "required": ["missionId", "userId", "sender", "content", "timestamp"]
+    },
+    "ImportedConversation": {
+      "title": "ImportedConversation",
+      "description": "Imported external AI conversation transcript for contextual grounding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "platform": { "type": "string" },
+        "sourceFormat": { "type": "string", "enum": ["json", "pdf", "txt", "csv", "api"] },
+        "messageCount": { "type": "number" },
+        "characterCount": { "type": "number" },
+        "summary": { "type": "string" },
+        "activeForContext": { "type": "boolean" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "platform", "sourceFormat", "messageCount", "activeForContext", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/missions/{missionId}": {
+      "schema": "CloudMission",
+      "description": "Shared multi-agent coordination missions"
+    },
+    "/missions/{missionId}/debrief/{messageId}": {
+      "schema": "DebriefMessage",
+      "description": "Multi-turn Supervisor debrief conversation thread"
+    },
+    "/users/{userId}/imported_conversations/{conversationId}": {
+      "schema": "ImportedConversation",
+      "description": "Operator imported external AI conversation history"
+    }
+  }
+}
