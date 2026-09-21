@@ -69,6 +69,10 @@ const pageTitles: Record<PageCategory, { title: string; subtitle: string }> = {
     title: 'Recursive Agent Tree & Canvas',
     subtitle: 'Multi-level branch canvas, certainty discipline, and granular agent node inspector.'
   },
+  blackboard: {
+    title: 'Project Swarm Blackboard & Coordination Hub',
+    subtitle: 'Autonomous sub-agent hierarchy, dynamic tool forge, persistent memory files, and external integrations.'
+  },
   telemetry: {
     title: 'Operations & Telemetry Sentinel',
     subtitle: 'Live chronological stream, doom-loop prevention sentinel, and node latency analytics.'

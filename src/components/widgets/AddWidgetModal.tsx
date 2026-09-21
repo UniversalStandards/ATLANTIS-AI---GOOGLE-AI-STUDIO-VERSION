@@ -19,6 +19,7 @@ const categoryLabels: Record<PageCategory, string> = {
   safety: 'Governance & Safety Audits',
   debrief: 'Supervisor Debrief & Interrogation',
   conversations: 'AI Ingest & Grounding Ledger',
+  blackboard: 'Project Swarm Blackboard & Tool Forge',
 };
 
 export const AddWidgetModal: React.FC<AddWidgetModalProps> = ({

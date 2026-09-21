@@ -21,17 +21,11 @@ import type {
   AgentNodeData, 
   LearnedPreferences, 
   RegisterMode, 
+  UniversalMode,
   AccTier, 
   CostComplexityTier 
 } from '../../types';
-
-// Preset scenarios
-const PRESETS = [
-  { label: 'Port Disruption (Long Beach)', sector: 'Maritime Logistics & Supply Chain', topology: 'Decentralized', text: 'Port of Long Beach crane automation failure with 42 container vessels queued. Formulate immediate logistics triage.' },
-  { label: 'Power Grid Islanding (ERCOT)', sector: 'Power Grid & Energy Infrastructure', topology: 'Hybrid', text: 'Severe freezing event causing unexpected generation trips across South Texas. Synthesize frequency stabilization plan.' },
-  { label: 'Medical Cold-Chain Failure', sector: 'Biopharma & Critical Healthcare', topology: 'Centralized', text: 'Regional biomedical repository refrigeration malfunction affecting 80,000 pediatric vaccine doses.' },
-  { label: 'Cloud Zone Outage (us-east-1)', sector: 'Financial Telecommunications', topology: 'Independent', text: 'Major availability zone network partition affecting real-time Fedwire transaction routing.' },
-];
+import { UNIVERSAL_MODES, detectModeFromPrompt } from '../../config/universalModes';
 
 // 1. Mission Launcher Widget
 export const WidgetMissionLauncher: React.FC<{
@@ -50,6 +44,11 @@ export const WidgetMissionLauncher: React.FC<{
   const [topologyOverride, setTopologyOverride] = useState<'Centralized' | 'Decentralized' | 'Hybrid' | 'Independent' | ''>('');
   const [depthOverride, setDepthOverride] = useState<number>(settings.defaultDepth || 3);
   const [registerOverride, setRegisterOverride] = useState<RegisterMode>('auto');
+  const [activePresetCategory, setActivePresetCategory] = useState<UniversalMode>('everyday');
+
+  // Dynamically detected mode when in auto
+  const detectedMode = prompt.trim() ? detectModeFromPrompt(prompt) : activePresetCategory;
+  const currentModeDef = UNIVERSAL_MODES[detectedMode] || UNIVERSAL_MODES.everyday;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,15 +57,16 @@ export const WidgetMissionLauncher: React.FC<{
     onStart(prompt.trim(), {
       maxDepth: depthOverride,
       registerMode: registerOverride,
+      operationalMode: registerOverride === 'auto' ? detectedMode : registerOverride,
       sectorOverride: sectorOverride.trim() || undefined,
       topologyOverride: topologyOverride || undefined,
     });
   };
 
-  const handleSelectPreset = (p: typeof PRESETS[0]) => {
+  const handleSelectPreset = (p: { label: string; sector: string; topology: any; text: string }) => {
     setPrompt(p.text);
     setSectorOverride(p.sector);
-    setTopologyOverride(p.topology as any);
+    setTopologyOverride(p.topology);
   };
 
   return (
@@ -77,10 +77,18 @@ export const WidgetMissionLauncher: React.FC<{
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={isProcessing}
-            placeholder="Define complex operational objective (e.g., 'Hospital power grid failure combined with water pump cavitation in Sector 4')..."
+            placeholder="Define any objective or ask any question (everyday tasks, small business growth, enterprise scale, municipal services, or federal statutory missions)..."
             rows={settings.compactMode ? 2 : 3}
             className="w-full bg-zinc-950/90 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/80 font-mono resize-none leading-relaxed"
           />
+          {prompt.trim() && registerOverride === 'auto' && (
+            <div className="absolute right-3 bottom-3 text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-700 text-zinc-400 flex items-center gap-1.5 shadow-sm">
+              <span className="text-zinc-500">DETECTED:</span>
+              <span className={`font-bold ${currentModeDef.theme.badgeText}`}>
+                {currentModeDef.name}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Configuration Bar */}
@@ -94,9 +102,9 @@ export const WidgetMissionLauncher: React.FC<{
                 onChange={(e) => setDepthOverride(Number(e.target.value))}
                 className="bg-transparent text-blue-300 font-bold focus:outline-none cursor-pointer"
               >
-                <option value={2} className="bg-zinc-900">2 Levels</option>
-                <option value={3} className="bg-zinc-900">3 Levels</option>
-                <option value={4} className="bg-zinc-900">4 Levels</option>
+                <option value={2} className="bg-zinc-900">2 Levels (Fast)</option>
+                <option value={3} className="bg-zinc-900">3 Levels (Balanced)</option>
+                <option value={4} className="bg-zinc-900">4 Levels (Deep)</option>
               </select>
             </div>
 
@@ -118,17 +126,26 @@ export const WidgetMissionLauncher: React.FC<{
               </div>
             )}
 
-            {/* Register Selector */}
+            {/* Universal Mode / Register Selector */}
             <div className="flex items-center gap-1.5 bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-800 text-[11px]">
-              <span className="text-zinc-500">REGISTER:</span>
+              <span className="text-zinc-500">MODE:</span>
               <select
                 value={registerOverride}
-                onChange={(e) => setRegisterOverride(e.target.value as any)}
+                onChange={(e) => {
+                  const val = e.target.value as RegisterMode;
+                  setRegisterOverride(val);
+                  if (val !== 'auto' && val !== 'civilian' && val !== 'government') {
+                    setActivePresetCategory(val as UniversalMode);
+                  }
+                }}
                 className="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer"
               >
-                <option value="auto" className="bg-zinc-900">Auto-Detect</option>
-                <option value="civilian" className="bg-zinc-900">Civilian-First</option>
-                <option value="government" className="bg-zinc-900">Gov / Formal</option>
+                <option value="auto" className="bg-zinc-900">⚡ Auto-Detect</option>
+                <option value="everyday" className="bg-zinc-900">👤 Everyday User</option>
+                <option value="small_business" className="bg-zinc-900">🏪 Small Business</option>
+                <option value="enterprise" className="bg-zinc-900">🏢 Major Corporation</option>
+                <option value="local_gov" className="bg-zinc-900">🏛️ Local Government</option>
+                <option value="federal" className="bg-zinc-900">🛡️ Federal Agency</option>
               </select>
             </div>
           </div>
@@ -145,27 +162,43 @@ export const WidgetMissionLauncher: React.FC<{
             }`}
           >
             <Play size={13} className={isProcessing ? 'animate-spin' : 'fill-white'} />
-            <span>{isProcessing ? 'COORDINATING...' : 'DEPLOY MISSION'}</span>
+            <span>{isProcessing ? 'COORDINATING...' : 'DISPATCH MISSION'}</span>
           </button>
         </div>
       </form>
 
-      {/* Preset Scenarios */}
+      {/* Preset Scenarios with Universal Continuum Tabs */}
       {settings.showPresets !== false && (
-        <div className="pt-2 border-t border-zinc-800/80">
-          <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="pt-2 border-t border-zinc-800/80 space-y-1.5">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-              Quick Preset Scenarios:
+              Universal Presets ({UNIVERSAL_MODES[activePresetCategory].name}):
             </span>
+            <div className="flex items-center gap-1">
+              {(['everyday', 'small_business', 'enterprise', 'local_gov', 'federal'] as UniversalMode[]).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActivePresetCategory(cat)}
+                  className={`text-[9px] font-mono px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    activePresetCategory === cat
+                      ? `${UNIVERSAL_MODES[cat].theme.badgeBg} ${UNIVERSAL_MODES[cat].theme.badgeText} font-bold border ${UNIVERSAL_MODES[cat].theme.accentBorder}`
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {UNIVERSAL_MODES[cat].shortLabel}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p, idx) => (
+            {UNIVERSAL_MODES[activePresetCategory].presets.map((p, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => handleSelectPreset(p)}
-                className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-zinc-950/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors truncate max-w-[220px]"
-                title={p.text}
+                className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-zinc-950/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors truncate max-w-[240px]"
+                title={`${p.label}: ${p.text}`}
               >
                 {p.label}
               </button>

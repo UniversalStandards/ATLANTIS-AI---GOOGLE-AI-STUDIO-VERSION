@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Lock, Shield, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
-import type { SafetyStripResult, SafetyAuditLog, RegisterMode } from '../../types';
+import type { SafetyStripResult, SafetyAuditLog, RegisterMode, UniversalMode } from '../../types';
+import { UNIVERSAL_MODES } from '../../config/universalModes';
 
 // 1. Safety Strip 5-Step Audit Widget
 export const WidgetSafetyStripAudit: React.FC<{
@@ -71,6 +72,15 @@ export const WidgetClassificationGuard: React.FC<{
     showZeroHedgingStatus?: boolean;
   };
 }> = ({ registerMode, isGovSector, settings }) => {
+  const isSpecificUniversal = ['everyday', 'small_business', 'enterprise', 'local_gov', 'federal'].includes(registerMode as string);
+  const activeUniversal = isSpecificUniversal ? UNIVERSAL_MODES[registerMode as UniversalMode] : null;
+
+  const modeDisplayLabel = activeUniversal
+    ? activeUniversal.badge
+    : isGovSector || registerMode === 'government'
+    ? 'GOVERNMENT / PROCEDURAL'
+    : 'UNIVERSAL / CIV-FIRST';
+
   return (
     <div className="p-4 h-full flex flex-col justify-between space-y-3 font-mono text-xs">
       <div className="space-y-3 overflow-y-auto pr-1">
@@ -79,10 +89,14 @@ export const WidgetClassificationGuard: React.FC<{
           <span className="text-[10px] text-zinc-500 uppercase">Operational Register</span>
           <div className="flex items-center justify-between mt-1">
             <span className="text-sm font-bold text-white">
-              {isGovSector ? 'GOVERNMENT / PROCEDURAL' : 'CIVILIAN-FIRST (DEFAULT)'}
+              {modeDisplayLabel}
             </span>
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-              isGovSector ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' : 'bg-blue-500/10 text-blue-300 border border-blue-500/30'
+              activeUniversal
+                ? `${activeUniversal.theme.badgeBg} ${activeUniversal.theme.badgeText} border ${activeUniversal.theme.accentBorder}`
+                : isGovSector
+                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+                : 'bg-blue-500/10 text-blue-300 border border-blue-500/30'
             }`}>
               {registerMode.toUpperCase()}
             </span>
@@ -94,10 +108,10 @@ export const WidgetClassificationGuard: React.FC<{
           <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 space-y-1">
             <span className="text-[10px] text-zinc-500 uppercase">Certainty Discipline</span>
             <div className="text-emerald-400 font-bold text-xs">
-              Zero-Hedging Protocol Active
+              Direct Synthesis Protocol Active
             </div>
             <p className="text-[10px] text-zinc-400 font-sans leading-relaxed mt-1">
-              Reflexive conversational filler (&ldquo;I&rsquo;d be happy to help&rdquo;, polite hedges) strictly prohibited across all nodes.
+              Reflexive conversational filler (&ldquo;I&rsquo;d be happy to help&rdquo;, polite hedges) strictly prohibited across all autonomous nodes.
             </p>
           </div>
         )}
@@ -105,7 +119,7 @@ export const WidgetClassificationGuard: React.FC<{
 
       <div className="text-[10px] text-zinc-500 pt-1 border-t border-zinc-800 flex justify-between">
         <span>STRICT TONE BOUNDARY</span>
-        <span>VERIFIED CIV-FIRST</span>
+        <span>{activeUniversal ? `VERIFIED ${activeUniversal.shortLabel.toUpperCase()}` : 'VERIFIED UNIVERSAL'}</span>
       </div>
     </div>
   );

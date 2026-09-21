@@ -9,13 +9,15 @@ interface ImportConversationModalProps {
   onClose: () => void;
   currentUser: FirebaseUser | null;
   onImportSuccess?: (conv: ImportedConversation) => void;
+  onOpenModelSettings?: () => void;
 }
 
 export const ImportConversationModal: React.FC<ImportConversationModalProps> = ({
   isOpen,
   onClose,
   currentUser,
-  onImportSuccess
+  onImportSuccess,
+  onOpenModelSettings
 }) => {
   if (!isOpen) return null;
 
@@ -33,14 +35,14 @@ export const ImportConversationModal: React.FC<ImportConversationModalProps> = (
                 Import External AI Conversations
               </h3>
               <p className="text-xs text-zinc-400 font-sans">
-                Store dialogue histories from PDF, JSON, TXT, CSV, or API keys for context grounding.
+                Import dialogue histories from ChatGPT exports (conversations.json), Claude, Gemini, PDF, or raw transcripts.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors"
+            className="p-1.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -52,6 +54,10 @@ export const ImportConversationModal: React.FC<ImportConversationModalProps> = (
             currentUser={currentUser}
             onImportSuccess={(conv) => {
               if (onImportSuccess) onImportSuccess(conv);
+            }}
+            onOpenModelSettings={() => {
+              onClose();
+              if (onOpenModelSettings) onOpenModelSettings();
             }}
           />
         </div>

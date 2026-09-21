@@ -508,6 +508,109 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     ],
     iconName: 'Database',
   },
+  widget_swarm_roster: {
+    id: 'widget_swarm_roster',
+    name: 'Swarm Agent Roster (7 Nodes)',
+    description: 'Displays the 7 specialized Project Swarm roles (Atlantis Core, Scout, Forge, Validator, Deployer, Archivist, Critic) with active status and capabilities.',
+    category: 'blackboard',
+    defaultWidth: 'col-12',
+    defaultHeight: 'standard',
+    defaultSettings: {
+      showTools: true,
+      compactView: false,
+    },
+    settingOptions: [
+      { key: 'showTools', label: 'Show Node Tool Capabilities', type: 'boolean' },
+      { key: 'compactView', label: 'Compact Grid View', type: 'boolean' },
+    ],
+    iconName: 'Users',
+  },
+  widget_blackboard_tasks: {
+    id: 'widget_blackboard_tasks',
+    name: 'Blackboard Task Queue (tasks.json)',
+    description: 'Shared blackboard task queue with sub-agent assignments, dependencies, and output references.',
+    category: 'blackboard',
+    defaultWidth: 'col-6',
+    defaultHeight: 'tall',
+    defaultSettings: {
+      filterStatus: 'all',
+    },
+    settingOptions: [
+      {
+        key: 'filterStatus',
+        label: 'Status Filter',
+        type: 'select',
+        options: [
+          { label: 'All Tasks', value: 'all' },
+          { label: 'In Progress Only', value: 'in_progress' },
+          { label: 'Completed Only', value: 'completed' },
+        ]
+      }
+    ],
+    iconName: 'Terminal',
+  },
+  widget_tool_forge: {
+    id: 'widget_tool_forge',
+    name: 'Tool Forge & Registry (/tools/)',
+    description: 'Self-expanding tool builder to forge custom Python, Bash, and Node scripts, test them under sandbox, and register into registry.json.',
+    category: 'blackboard',
+    defaultWidth: 'col-6',
+    defaultHeight: 'tall',
+    defaultSettings: {
+      defaultLanguage: 'python',
+    },
+    settingOptions: [
+      {
+        key: 'defaultLanguage',
+        label: 'Default Tool Language',
+        type: 'select',
+        options: [
+          { label: 'Python', value: 'python' },
+          { label: 'Bash', value: 'bash' },
+          { label: 'JavaScript', value: 'javascript' },
+        ]
+      }
+    ],
+    iconName: 'Wrench',
+  },
+  widget_swarm_memory_files: {
+    id: 'widget_swarm_memory_files',
+    name: 'Persistent Memory Files (CONTEXT & LOG)',
+    description: 'Interactive editor and viewer for CONTEXT_MEMORY.md and SWARM_LOG.md across all persistent sessions.',
+    category: 'blackboard',
+    defaultWidth: 'col-6',
+    defaultHeight: 'tall',
+    defaultSettings: {
+      defaultFile: 'context',
+    },
+    settingOptions: [
+      {
+        key: 'defaultFile',
+        label: 'Default File Open',
+        type: 'select',
+        options: [
+          { label: 'CONTEXT_MEMORY.md', value: 'context' },
+          { label: 'SWARM_LOG.md', value: 'log' },
+        ]
+      }
+    ],
+    iconName: 'Archive',
+  },
+  widget_external_integrations: {
+    id: 'widget_external_integrations',
+    name: 'External Services & MCP Hub',
+    description: 'Status and connectivity matrix for GitHub, Supabase, Vercel, Exa AI, and Context7 MCP endpoints.',
+    category: 'blackboard',
+    defaultWidth: 'col-6',
+    defaultHeight: 'tall',
+    defaultSettings: {
+      showPings: true,
+    },
+    settingOptions: [
+      { key: 'showPings', label: 'Enable Health Check Latency Pings', type: 'boolean' },
+    ],
+    iconName: 'FolderGit2',
+  },
 };
 
 // Default layout configuration for each page
@@ -570,6 +673,43 @@ export const DEFAULT_PAGE_LAYOUTS: Record<PageCategory, WidgetInstance[]> = {
       width: 'col-12',
       height: 'compact',
       settings: { ...WIDGET_REGISTRY.widget_branch_metrics.defaultSettings },
+    },
+  ],
+  blackboard: [
+    {
+      instanceId: 'swarm_roster_1',
+      widgetId: 'widget_swarm_roster',
+      width: 'col-12',
+      height: 'standard',
+      settings: { ...WIDGET_REGISTRY.widget_swarm_roster.defaultSettings },
+    },
+    {
+      instanceId: 'swarm_blackboard_1',
+      widgetId: 'widget_blackboard_tasks',
+      width: 'col-6',
+      height: 'tall',
+      settings: { ...WIDGET_REGISTRY.widget_blackboard_tasks.defaultSettings },
+    },
+    {
+      instanceId: 'swarm_forge_1',
+      widgetId: 'widget_tool_forge',
+      width: 'col-6',
+      height: 'tall',
+      settings: { ...WIDGET_REGISTRY.widget_tool_forge.defaultSettings },
+    },
+    {
+      instanceId: 'swarm_memory_1',
+      widgetId: 'widget_swarm_memory_files',
+      width: 'col-6',
+      height: 'tall',
+      settings: { ...WIDGET_REGISTRY.widget_swarm_memory_files.defaultSettings },
+    },
+    {
+      instanceId: 'swarm_integrations_1',
+      widgetId: 'widget_external_integrations',
+      width: 'col-6',
+      height: 'tall',
+      settings: { ...WIDGET_REGISTRY.widget_external_integrations.defaultSettings },
     },
   ],
   telemetry: [

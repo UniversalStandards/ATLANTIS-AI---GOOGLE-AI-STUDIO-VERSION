@@ -10,7 +10,10 @@ import {
   ChevronRight,
   Sparkles,
   Layers,
-  Cpu
+  Cpu,
+  Key,
+  Sliders,
+  Users
 } from 'lucide-react';
 import type { PageCategory, MissionData } from '../types';
 
@@ -22,6 +25,7 @@ interface NavigationSidebarProps {
   activeMission: MissionData | null;
   nodeCount: number;
   isProcessing: boolean;
+  onOpenModelSettings?: () => void;
 }
 
 interface NavItem {
@@ -39,7 +43,8 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   onToggleCollapse,
   activeMission,
   nodeCount,
-  isProcessing
+  isProcessing,
+  onOpenModelSettings
 }) => {
   const navItems: NavItem[] = [
     {
@@ -55,6 +60,13 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       sublabel: 'Recursive Hierarchy',
       icon: <GitBranch size={18} />,
       badge: nodeCount > 0 ? `${nodeCount}` : undefined,
+    },
+    {
+      id: 'blackboard',
+      label: 'Swarm Blackboard',
+      sublabel: '7 Nodes, Tasks & Tools',
+      icon: <Users size={18} />,
+      badge: 'SWARM',
     },
     {
       id: 'telemetry',
@@ -156,6 +168,38 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             );
           })}
         </nav>
+
+        {/* Model Providers & API Settings Submenu Button */}
+        {onOpenModelSettings && (
+          <div className="px-2 pt-1">
+            <button
+              onClick={onOpenModelSettings}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-mono text-left group border ${
+                isCollapsed
+                  ? 'justify-center border-blue-900/40 bg-blue-950/20 text-blue-400 hover:bg-blue-900/40'
+                  : 'border-blue-900/40 bg-blue-950/20 hover:bg-blue-900/30 text-blue-300 hover:text-white'
+              }`}
+              title={isCollapsed ? 'Model Providers & API Settings' : undefined}
+            >
+              <Key size={16} className="text-blue-400 shrink-0" />
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-200 group-hover:text-white truncate">
+                      Model Settings
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-blue-900/60 text-blue-300 border border-blue-700/50">
+                      API
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-sans truncate">
+                    Gemini · ChatGPT · Claude
+                  </div>
+                </div>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bottom Mission Status Footprint */}

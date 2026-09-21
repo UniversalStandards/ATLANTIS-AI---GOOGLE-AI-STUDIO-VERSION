@@ -16,10 +16,11 @@ import {
   CheckCircle2,
   ChevronDown
 } from 'lucide-react';
-import type { MissionData } from '../types';
+import type { MissionData, AppModelSettings } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { loadModelSettings, PROVIDER_CATALOG } from '../utils/modelCatalog';
 
-export type ChatModelTier = 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite';
+export type ChatModelTier = string;
 
 export interface ChatMessage {
   id: string;
@@ -48,10 +49,25 @@ export const SupervisorDebriefChat: React.FC<SupervisorDebriefChatProps> = ({
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [modelTier, setModelTier] = useState<ChatModelTier>('gemini-3.5-flash');
+  const [appSettings, setAppSettings] = useState<AppModelSettings>(loadModelSettings);
+  const [modelTier, setModelTier] = useState<ChatModelTier>(() => {
+    const s = loadModelSettings();
+    return s.roleAssignments?.debriefChat?.model || 'gemini-3.5-flash';
+  });
   const [useSearchGrounding, setUseSearchGrounding] = useState<boolean>(true);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync settings whenever opened
+  useEffect(() => {
+    if (isOpen) {
+      const latest = loadModelSettings();
+      setAppSettings(latest);
+      if (!modelTier) {
+        setModelTier(latest.roleAssignments?.debriefChat?.model || 'gemini-3.5-flash');
+      }
+    }
+  }, [isOpen]);
 
   // Initialize with greeting if empty
   useEffect(() => {
@@ -63,7 +79,7 @@ export const SupervisorDebriefChat: React.FC<SupervisorDebriefChatProps> = ({
           ? `[Supervisor Telemetry Online]: Debrief channel active for mission "${activeMission.title}". Sector: ${activeMission.sector} (${activeMission.topology} topology). Standing by to defend decisions, interrogate node findings, or verify live external data.`
           : `[Supervisor Telemetry Online]: Standby mode active. Dispatch a mission or ask any operational coordination question.`,
         timestamp: Date.now(),
-        modelTier: 'gemini-3.5-flash'
+        modelTier: modelTier
       };
       setMessages([initialGreeting]);
     }
@@ -91,13 +107,21 @@ export const SupervisorDebriefChat: React.FC<SupervisorDebriefChatProps> = ({
     setMessages(newHistory);
     setIsStreaming(true);
 
+    const latestSettings = loadModelSettings();
+    setAppSettings(latestSettings);
+
+    const isGeminiModel = modelTier.startsWith('gemini-');
+    const displayModel = isGeminiModel && useSearchGrounding
+      ? `${modelTier} (Google Search)`
+      : modelTier;
+
     const supervisorMsgId = Math.random().toString(36).substring(7);
     const initialSupervisorMsg: ChatMessage = {
       id: supervisorMsgId,
       sender: 'supervisor',
       content: '',
       timestamp: Date.now(),
-      modelTier: useSearchGrounding ? 'gemini-3.5-flash (Google Search)' : modelTier
+      modelTier: displayModel
     };
 
     setMessages((prev) => [...prev, initialSupervisorMsg]);
@@ -109,14 +133,15 @@ export const SupervisorDebriefChat: React.FC<SupervisorDebriefChatProps> = ({
         body: JSON.stringify({
           messages: newHistory.map(m => ({ sender: m.sender, content: m.content })),
           modelTier,
-          useSearch: useSearchGrounding,
+          useSearch: isGeminiModel ? useSearchGrounding : false,
           missionContext: activeMission ? {
             title: activeMission.title,
             sector: activeMission.sector,
             topology: activeMission.topology,
             result: activeMission.result
           } : undefined,
-          sector: activeMission?.sector || 'Infrastructure'
+          sector: activeMission?.sector || 'Infrastructure',
+          modelSettings: latestSettings
         })
       });
 
@@ -242,35 +267,60 @@ export const SupervisorDebriefChat: React.FC<SupervisorDebriefChatProps> = ({
       {/* Model & Search Grounding Controls Strip */}
       <div className="p-2.5 border-b border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between gap-2 text-xs font-mono">
         {/* Model Tier Selector */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <Cpu size={13} className="text-blue-400 shrink-0" />
           <select
             value={modelTier}
             onChange={(e) => setModelTier(e.target.value as ChatModelTier)}
             disabled={isStreaming}
-            className="bg-zinc-900 border border-zinc-700/80 rounded px-2 py-1 text-[11px] text-zinc-200 focus:outline-none focus:border-blue-500"
+            className="bg-zinc-900 border border-zinc-700/80 rounded px-2 py-1 text-[11px] text-zinc-200 focus:outline-none focus:border-blue-500 max-w-[240px] truncate"
           >
-            <option value="gemini-3.5-flash">gemini-3.5-flash (General)</option>
-            <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Complex)</option>
-            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Fast)</option>
+            <optgroup label="Google Gemini">
+              {PROVIDER_CATALOG.gemini.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="OpenAI (ChatGPT)">
+              {PROVIDER_CATALOG.openai.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {appSettings.providers?.openai?.apiKey ? '' : '(needs key)'}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Anthropic (Claude)">
+              {PROVIDER_CATALOG.anthropic.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {appSettings.providers?.anthropic?.apiKey ? '' : '(needs key)'}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 
-        {/* Google Search Grounding Toggle */}
-        <button
-          type="button"
-          onClick={() => setUseSearchGrounding(!useSearchGrounding)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] border transition-all ${
-            useSearchGrounding
-              ? 'bg-blue-600/20 text-blue-300 border-blue-500/50 shadow-sm'
-              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-300'
-          }`}
-          title="Enable live Google Search Grounding via gemini-3.5-flash"
-        >
-          <Globe size={12} className={useSearchGrounding ? 'text-blue-400' : 'text-zinc-500'} />
-          <span>Google Search</span>
-          {useSearchGrounding && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-        </button>
+        {/* Google Search Grounding Toggle (Gemini models) or Provider badge */}
+        {modelTier.startsWith('gemini-') ? (
+          <button
+            type="button"
+            onClick={() => setUseSearchGrounding(!useSearchGrounding)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] border transition-all shrink-0 ${
+              useSearchGrounding
+                ? 'bg-blue-600/20 text-blue-300 border-blue-500/50 shadow-sm'
+                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-300'
+            }`}
+            title="Enable live Google Search Grounding via Gemini models"
+          >
+            <Globe size={12} className={useSearchGrounding ? 'text-blue-400' : 'text-zinc-500'} />
+            <span>Google Search</span>
+            {useSearchGrounding && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 border border-zinc-800 rounded px-2 py-1 bg-zinc-900/60 shrink-0">
+            <Sparkles size={11} className="text-amber-400" />
+            <span>{modelTier.startsWith('claude') ? 'Claude Stream' : 'OpenAI Stream'}</span>
+          </div>
+        )}
       </div>
 
       {/* Message Thread */}

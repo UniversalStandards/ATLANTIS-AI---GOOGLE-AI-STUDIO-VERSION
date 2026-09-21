@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { db, seedDefaultDatabase } from '../db';
-import { syncMissionToCloud, auth } from '../firebase';
+import { 
+  syncMissionToCloud, 
+  persistActiveSessionToFirestore, 
+  fetchActiveSessionFromFirestore, 
+  auth 
+} from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import type { 
   AgentNodeData, 
   MissionData, 
@@ -15,6 +21,7 @@ import type {
   LearnedPreferences,
   AdaptationLogItem
 } from '../types';
+import { loadModelSettings } from '../utils/modelCatalog';
 
 export interface StartMissionConfig {
   maxDepth: number;
@@ -43,9 +50,30 @@ function getAccTier(percent: number): AccTier {
   return 'None';
 }
 
+const SESSION_CACHE_KEY = 'atlantis_active_session_cache';
+
 export function useAtlantisEngine() {
-  const [activeMission, setActiveMission] = useState<MissionData | null>(null);
-  const [nodes, setNodes] = useState<Record<string, AgentNodeData>>({});
+  const [activeMission, setActiveMission] = useState<MissionData | null>(() => {
+    try {
+      const cached = localStorage.getItem(SESSION_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.activeMission) return parsed.activeMission;
+      }
+    } catch {}
+    return null;
+  });
+
+  const [nodes, setNodes] = useState<Record<string, AgentNodeData>>(() => {
+    try {
+      const cached = localStorage.getItem(SESSION_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.nodes && Object.keys(parsed.nodes).length > 0) return parsed.nodes;
+      }
+    } catch {}
+    return {};
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [logs, setLogs] = useState<Array<{ id: string; time: string; text: string; level: 'info' | 'warn' | 'success' }>>([]);
@@ -99,6 +127,35 @@ export function useAtlantisEngine() {
   const nodesRef = useRef<Record<string, AgentNodeData>>({});
   nodesRef.current = nodes;
 
+  const persistTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isResumingRef = useRef<boolean>(false);
+
+  const addLog = useCallback((text: string, level: 'info' | 'warn' | 'success' = 'info') => {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs(prev => [{ id: Math.random().toString(36).substring(7), time, text, level }, ...prev.slice(0, 79)]);
+  }, []);
+
+  // Helper to resume active session from Cloud Firestore
+  const restoreSessionFromFirestore = useCallback(async (user: any) => {
+    if (!user) return;
+    try {
+      const cloudSession = await fetchActiveSessionFromFirestore(user);
+      if (cloudSession && cloudSession.activeMission) {
+        isResumingRef.current = true;
+        setActiveMission(cloudSession.activeMission);
+        if (cloudSession.nodes && Object.keys(cloudSession.nodes).length > 0) {
+          setNodes(cloudSession.nodes);
+        }
+        addLog(`Resumed session from Cloud Firestore: "${cloudSession.activeMission.title?.slice(0, 36)}..."`, 'success');
+        setTimeout(() => {
+          isResumingRef.current = false;
+        }, 1200);
+      }
+    } catch (err: any) {
+      console.warn("Could not resume active session from Firestore:", err?.message);
+    }
+  }, [addLog]);
+
   // Load database seeds and memories on initial mount
   useEffect(() => {
     seedDefaultDatabase().then(async () => {
@@ -114,7 +171,7 @@ export function useAtlantisEngine() {
       const pastSafety = await db.safetyLogs.reverse().limit(15).toArray();
       setSafetyLogs(pastSafety);
 
-      // Load latest mission if present
+      // 1. Initial fast local load from Dexie
       const latestMission = await db.missions.reverse().first();
       if (latestMission) {
         setActiveMission(latestMission);
@@ -122,13 +179,81 @@ export function useAtlantisEngine() {
           setNodes(latestMission.treeSnapshot);
         }
       }
-    });
-  }, []);
 
-  const addLog = useCallback((text: string, level: 'info' | 'warn' | 'success' = 'info') => {
-    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLogs(prev => [{ id: Math.random().toString(36).substring(7), time, text, level }, ...prev.slice(0, 79)]);
-  }, []);
+      // 2. Synchronous check if auth.currentUser is already present on initial mount
+      if (auth.currentUser) {
+        await restoreSessionFromFirestore(auth.currentUser);
+      }
+    });
+  }, [restoreSessionFromFirestore]);
+
+  // Listen to Firebase Auth state changes to resume Cloud Firestore session upon sign-in/refresh
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await restoreSessionFromFirestore(user);
+      }
+    });
+    return () => unsubscribe();
+  }, [restoreSessionFromFirestore]);
+
+  // Auto-persist active mission and nodes to Firestore on state updates (debounced)
+  useEffect(() => {
+    if (isResumingRef.current) return;
+    if (!activeMission && Object.keys(nodes).length === 0) return;
+
+    // Cache immediately in localStorage for instant synchronous reload
+    try {
+      localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+        activeMission,
+        nodes,
+        updatedAt: Date.now()
+      }));
+    } catch {}
+
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+
+    persistTimerRef.current = setTimeout(async () => {
+      if (auth.currentUser) {
+        try {
+          await persistActiveSessionToFirestore(activeMission, nodes, auth.currentUser);
+        } catch (err: any) {
+          console.warn("Firestore session persist warning:", err?.message);
+        }
+      }
+    }, 1200);
+
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, [activeMission, nodes]);
+
+  // Flush persistence immediately if the user refreshes or leaves the tab
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+          activeMission,
+          nodes: nodesRef.current,
+          updatedAt: Date.now()
+        }));
+      } catch {}
+
+      if (auth.currentUser && (activeMission || Object.keys(nodesRef.current).length > 0)) {
+        persistActiveSessionToFirestore(activeMission, nodesRef.current, auth.currentUser).catch(() => {});
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [activeMission]);
 
   const updateNode = useCallback((id: string, data: Partial<AgentNodeData>) => {
     setNodes(prev => {
@@ -219,6 +344,7 @@ export function useAtlantisEngine() {
     let capturedGrounding: { queries?: string[]; sources?: Array<{ uri: string; title: string }> } | undefined = undefined;
 
     try {
+      const modelSettings = loadModelSettings();
       const response = await fetch('/api/gemini/stream-node', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -236,7 +362,8 @@ export function useAtlantisEngine() {
           compactionTier: nodeAccTier,
           correctiveDirective,
           retrievedMemories: semanticMemories.slice(0, 3),
-          enableSearch: true
+          enableSearch: modelSettings.hyperparameters?.enableGrounding ?? true,
+          modelSettings
         })
       });
 
@@ -381,10 +508,11 @@ Resolved objective for "${task}" in ${sector}. Operational telemetry verified un
 
     if (shouldRecurse) {
       try {
+        const modelSettings = loadModelSettings();
         const decompRes = await fetch('/api/gemini/decompose', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task, depth, maxDepth, sector })
+          body: JSON.stringify({ task, depth, maxDepth, sector, modelSettings })
         });
         const decompData = await decompRes.json();
         // Fan-out capped at 4
@@ -472,13 +600,15 @@ Resolved objective for "${task}" in ${sector}. Operational telemetry verified un
 
     try {
       // 2. Classify Mission
+      const modelSettings = loadModelSettings();
       const classifyRes = await fetch('/api/gemini/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: input,
           userRegisterPreference: detectedBrevity,
-          retrievedMemories: semanticMemories.slice(0, 3)
+          retrievedMemories: semanticMemories.slice(0, 3),
+          modelSettings
         })
       });
       const classification = await classifyRes.json();
@@ -528,6 +658,9 @@ Resolved objective for "${task}" in ${sector}. Operational telemetry verified un
         userBrevity: detectedBrevity
       };
       setActiveMission(initialMission);
+      if (auth.currentUser) {
+        persistActiveSessionToFirestore(initialMission, {}, auth.currentUser).catch(() => {});
+      }
 
       // 3. Recursive Supervisor Execution (Cap fan-out 4, cap depth at maxDepth)
       const rootResult = await executeNodeRecursive(
@@ -626,7 +759,8 @@ Resolved objective for "${task}" in ${sector}. Operational telemetry verified un
       // Cloud Persistence: Sync to Firebase Firestore if operator authenticated
       if (auth.currentUser) {
         await syncMissionToCloud(completedMission, auth.currentUser);
-        addLog(`Mission synced to Firebase Cloud Firestore [ID: ${missionId}]`, 'info');
+        await persistActiveSessionToFirestore(completedMission, finalTree, auth.currentUser);
+        addLog(`Active mission and ${totalNodesCount} nodes persisted to Cloud Firestore [ID: ${missionId}]`, 'success');
       }
 
       // 6. Dual Memory: Distill Semantic Memory lesson
@@ -722,6 +856,9 @@ Resolved objective for "${task}" in ${sector}. Operational telemetry verified un
       setNodes(past.treeSnapshot);
       setSelectedNodeId(null);
       addLog(`Loaded mission #${missionId}: "${past.title.slice(0, 40)}..."`, 'info');
+      if (auth.currentUser) {
+        persistActiveSessionToFirestore(past, past.treeSnapshot, auth.currentUser).catch(() => {});
+      }
     }
   };
 

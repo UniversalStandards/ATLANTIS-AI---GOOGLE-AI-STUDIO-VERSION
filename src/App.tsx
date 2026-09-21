@@ -10,6 +10,7 @@ import { TelemetryDrawer } from './components/TelemetryDrawer';
 import { CommandPalette } from './components/CommandPalette';
 import { SupervisorDebriefChat } from './components/SupervisorDebriefChat';
 import { ImportConversationModal } from './components/widgets/ImportConversationModal';
+import { ModelSettingsModal } from './components/ModelSettingsModal';
 import { useAtlantisEngine } from './hooks/useAtlantisEngine';
 import { 
   auth, 
@@ -68,6 +69,7 @@ export default function App() {
   // Modal & Drawer states
   const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
   const [isVoiceGuideOpen, setIsVoiceGuideOpen] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -200,6 +202,7 @@ export default function App() {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onToggleDebriefChat={() => setIsDebriefChatOpen((prev) => !prev)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
+        onOpenModelSettings={() => setIsModelSettingsOpen(true)}
         isTerminalOpen={isTerminalOpen}
         isDebriefChatOpen={isDebriefChatOpen}
       />
@@ -215,6 +218,7 @@ export default function App() {
           activeMission={activeMission}
           nodeCount={Object.keys(nodes).length}
           isProcessing={isProcessing}
+          onOpenModelSettings={() => setIsModelSettingsOpen(true)}
         />
 
         {/* Dynamic Page Resizable Widget Canvas */}
@@ -312,6 +316,13 @@ export default function App() {
           setActiveCategory('conversations');
           setIsImportModalOpen(false);
         }}
+        onOpenModelSettings={() => setIsModelSettingsOpen(true)}
+      />
+
+      {/* Centralized Model Providers & API Keys Settings Modal */}
+      <ModelSettingsModal
+        isOpen={isModelSettingsOpen}
+        onClose={() => setIsModelSettingsOpen(false)}
       />
 
       {/* Collapsible Telemetry Logs Drawer (Top-level hotkey or trigger) */}
@@ -326,6 +337,7 @@ export default function App() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onNavigatePage={setActiveCategory}
+        onOpenModelSettings={() => setIsModelSettingsOpen(true)}
         onSelectMissionPrompt={(prompt, sector) => {
           setActiveCategory('dashboard');
           startMission(prompt, {

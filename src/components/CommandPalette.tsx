@@ -15,7 +15,8 @@ import {
   GitBranch,
   Database,
   ShieldCheck,
-  MessageSquare
+  MessageSquare,
+  Key
 } from 'lucide-react';
 import { db } from '../db';
 import type { MissionData, PageCategory } from '../types';
@@ -28,6 +29,7 @@ interface CommandPaletteProps {
   onToggleTerminal: () => void;
   onResetPreferences: () => void;
   onNavigatePage?: (category: PageCategory) => void;
+  onOpenModelSettings?: () => void;
   activeMission: MissionData | null;
 }
 
@@ -39,6 +41,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggleTerminal,
   onResetPreferences,
   onNavigatePage,
+  onOpenModelSettings,
   activeMission
 }) => {
   const [query, setQuery] = useState('');
@@ -100,6 +103,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         icon: <MessageSquare size={14} className="text-blue-400" />,
         run: () => { onNavigatePage('debrief'); onClose(); }
       },
+    ] : []),
+    ...(onOpenModelSettings ? [
+      {
+        id: 'config-models',
+        title: 'Settings: Model Providers & API Keys (Gemini, ChatGPT, Claude)',
+        category: 'Configuration',
+        icon: <Key size={14} className="text-emerald-400" />,
+        run: () => { onOpenModelSettings(); onClose(); }
+      }
     ] : []),
     {
       id: 'quick-grid',

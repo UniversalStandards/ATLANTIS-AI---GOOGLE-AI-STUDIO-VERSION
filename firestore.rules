@@ -15,11 +15,30 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
 
+      // Active agent mission & nodes session state for browser refresh resumption
+      match /session/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // Imported AI conversations archive
       match /imported_conversations/{conversationId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
         allow update, delete: if isOwner(userId);
+      }
+
+      // Unconfirmed imported conversations awaiting operator review & staging resumption
+      match /unconfirmed_conversations/{conversationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isOwner(userId);
+      }
+
+      // Swarm Blackboard persistent data (tasks, tools, integrations, memory files)
+      match /blackboard/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
+        allow delete: if isOwner(userId);
       }
     }
 

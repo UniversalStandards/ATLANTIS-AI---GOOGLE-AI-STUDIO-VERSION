@@ -65,12 +65,60 @@
         "timestamp": { "type": "number" }
       },
       "required": ["id", "userId", "title", "platform", "sourceFormat", "messageCount", "activeForContext", "timestamp"]
+    },
+    "ActiveSession": {
+      "title": "ActiveSession",
+      "description": "Persisted active agent mission and tree nodes state for browser session resumption",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "activeMission": { "type": "object" },
+        "nodes": { "type": "object" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "updatedAt"]
+    },
+    "UnconfirmedConversation": {
+      "title": "UnconfirmedConversation",
+      "description": "Unconfirmed imported conversation transcript stored for user review and subsequent confirmation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "platform": { "type": "string" },
+        "sourceFormat": { "type": "string" },
+        "messageCount": { "type": "number" },
+        "characterCount": { "type": "number" },
+        "summary": { "type": "string" },
+        "stagedAt": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "platform", "sourceFormat", "messageCount", "stagedAt"]
+    },
+    "BlackboardState": {
+      "title": "BlackboardState",
+      "description": "Persisted Swarm Blackboard data including tasks, forged tools, external integrations, and memory files",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["tasks", "tools", "integrations", "memory"] },
+        "items": { "type": "array" },
+        "contextMemory": { "type": "string" },
+        "swarmLog": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "type", "updatedAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User profile document"
+    },
+    "/users/{userId}/session/{sessionId}": {
+      "schema": "ActiveSession",
+      "description": "Persisted active agent mission and nodes session"
     },
     "/missions/{missionId}": {
       "schema": "CloudMission",
@@ -83,6 +131,14 @@
     "/users/{userId}/imported_conversations/{conversationId}": {
       "schema": "ImportedConversation",
       "description": "Operator imported external AI conversation history"
+    },
+    "/users/{userId}/unconfirmed_conversations/{conversationId}": {
+      "schema": "UnconfirmedConversation",
+      "description": "Unconfirmed imported conversations awaiting user review and confirmation"
+    },
+    "/users/{userId}/blackboard/{docId}": {
+      "schema": "BlackboardState",
+      "description": "Swarm Blackboard persistent data for tasks, tools, integrations, and memory"
     }
   }
 }

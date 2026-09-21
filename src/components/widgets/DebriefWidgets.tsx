@@ -11,14 +11,15 @@ import {
   ShieldCheck,
   RotateCcw
 } from 'lucide-react';
-import type { MissionData } from '../../types';
+import type { MissionData, AppModelSettings } from '../../types';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { loadModelSettings, PROVIDER_CATALOG } from '../../utils/modelCatalog';
 
 interface DebriefWidgetProps {
   activeMission: MissionData | null;
   currentUser: FirebaseUser | null;
   settings: {
-    defaultModel?: 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite';
+    defaultModel?: string;
     enableGrounding?: boolean;
     showQuickPrompts?: boolean;
   };
@@ -42,10 +43,19 @@ export const WidgetDebriefConsole: React.FC<DebriefWidgetProps> = ({
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [modelTier, setModelTier] = useState<string>(settings.defaultModel || 'gemini-3.5-flash');
+  const [appSettings, setAppSettings] = useState<AppModelSettings>(loadModelSettings);
+  const [modelTier, setModelTier] = useState<string>(() => {
+    const s = loadModelSettings();
+    return settings.defaultModel || s.roleAssignments?.debriefChat?.model || 'gemini-3.5-flash';
+  });
   const [useGrounding, setUseGrounding] = useState<boolean>(settings.enableGrounding !== false);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const latest = loadModelSettings();
+    setAppSettings(latest);
+  }, []);
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -96,6 +106,9 @@ export const WidgetDebriefConsole: React.FC<DebriefWidgetProps> = ({
     ]);
 
     try {
+      const latest = loadModelSettings();
+      setAppSettings(latest);
+
       const response = await fetch('/api/supervisor-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +120,8 @@ export const WidgetDebriefConsole: React.FC<DebriefWidgetProps> = ({
             content: m.content,
           })),
           modelTier,
-          useSearchGrounding: useGrounding,
+          useSearchGrounding: modelTier.startsWith('gemini-') ? useGrounding : false,
+          modelSettings: latest
         }),
       });
 
@@ -185,11 +199,29 @@ export const WidgetDebriefConsole: React.FC<DebriefWidgetProps> = ({
             value={modelTier}
             onChange={(e) => setModelTier(e.target.value)}
             disabled={isStreaming}
-            className="bg-zinc-950 border border-zinc-800 text-blue-300 font-bold px-2 py-1 rounded text-xs focus:outline-none"
+            className="bg-zinc-950 border border-zinc-800 text-blue-300 font-bold px-2 py-1 rounded text-xs focus:outline-none max-w-[200px] truncate"
           >
-            <option value="gemini-3.5-flash">Gemini 3.5 Flash (Fast & Grounded)</option>
-            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Deep Trade-offs)</option>
-            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Low Latency)</option>
+            <optgroup label="Google Gemini">
+              {PROVIDER_CATALOG.gemini.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="OpenAI (ChatGPT)">
+              {PROVIDER_CATALOG.openai.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {appSettings.providers?.openai?.apiKey ? '' : '(needs key)'}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Anthropic (Claude)">
+              {PROVIDER_CATALOG.anthropic.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {appSettings.providers?.anthropic?.apiKey ? '' : '(needs key)'}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 

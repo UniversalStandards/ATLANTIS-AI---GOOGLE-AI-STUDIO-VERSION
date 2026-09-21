@@ -44,6 +44,13 @@ import { WidgetDebriefConsole } from './DebriefWidgets';
 import { ConversationImporterWidget } from './ConversationImporterWidget';
 import { ConversationArchiveWidget } from './ConversationArchiveWidget';
 import { ActiveContextMatrixWidget } from './ActiveContextMatrixWidget';
+import {
+  WidgetSwarmRoster,
+  WidgetBlackboardTasks,
+  WidgetToolForge,
+  WidgetSwarmMemoryFiles,
+  WidgetExternalIntegrations,
+} from './SwarmBlackboardWidgets';
 
 interface WidgetRendererProps {
   instance: WidgetInstance;
@@ -195,6 +202,38 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
         return (
           <WidgetBranchMetrics
             nodes={nodes}
+            settings={instance.settings}
+          />
+        );
+
+      // --- SWARM BLACKBOARD ---
+      case 'widget_swarm_roster':
+        return (
+          <WidgetSwarmRoster
+            settings={instance.settings}
+          />
+        );
+      case 'widget_blackboard_tasks':
+        return (
+          <WidgetBlackboardTasks
+            settings={instance.settings}
+          />
+        );
+      case 'widget_tool_forge':
+        return (
+          <WidgetToolForge
+            settings={instance.settings}
+          />
+        );
+      case 'widget_swarm_memory_files':
+        return (
+          <WidgetSwarmMemoryFiles
+            settings={instance.settings}
+          />
+        );
+      case 'widget_external_integrations':
+        return (
+          <WidgetExternalIntegrations
             settings={instance.settings}
           />
         );

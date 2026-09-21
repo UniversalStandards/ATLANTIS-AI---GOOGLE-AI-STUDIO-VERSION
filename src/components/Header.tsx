@@ -18,16 +18,22 @@ import {
   Database,
   ShieldCheck,
   Plus,
-  RotateCcw
+  RotateCcw,
+  Key,
+  Sliders,
+  Settings
 } from 'lucide-react';
-import type { RegisterMode, PageCategory } from '../types';
+import type { RegisterMode, PageCategory, UniversalMode } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { UniversalModeSelector } from './UniversalModeSelector';
 
 interface HeaderProps {
   isProcessing: boolean;
   activeSector?: string;
   isGovSector?: boolean;
   registerMode: RegisterMode;
+  currentMode?: UniversalMode;
+  onSelectMode?: (mode: RegisterMode) => void;
   currentUser: FirebaseUser | null;
   activeCategory: PageCategory;
   onSelectCategory: (category: PageCategory) => void;
@@ -40,6 +46,7 @@ interface HeaderProps {
   onOpenCommandPalette: () => void;
   onToggleDebriefChat: () => void;
   onOpenImportModal?: () => void;
+  onOpenModelSettings?: () => void;
   isTerminalOpen: boolean;
   isDebriefChatOpen: boolean;
 }
@@ -49,6 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeSector,
   isGovSector,
   registerMode,
+  currentMode = 'everyday',
+  onSelectMode,
   currentUser,
   activeCategory,
   onSelectCategory,
@@ -61,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCommandPalette,
   onToggleDebriefChat,
   onOpenImportModal,
+  onOpenModelSettings,
   isTerminalOpen,
   isDebriefChatOpen
 }) => {
@@ -96,6 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <option value="dashboard" className="bg-zinc-900 text-white">Mission Hub</option>
             <option value="tree" className="bg-zinc-900 text-white">Agent Tree</option>
+            <option value="blackboard" className="bg-zinc-900 text-white">Swarm Blackboard</option>
             <option value="telemetry" className="bg-zinc-900 text-white">Operations & Logs</option>
             <option value="memory" className="bg-zinc-900 text-white">Memory Ledger</option>
             <option value="safety" className="bg-zinc-900 text-white">Safety & Governance</option>
@@ -136,6 +147,15 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Universal Mode Selector Dropdown */}
+        {onSelectMode && (
+          <UniversalModeSelector
+            currentMode={currentMode}
+            registerMode={registerMode}
+            onSelectMode={onSelectMode}
+          />
+        )}
+
         {/* Command Palette Trigger */}
         <button
           onClick={onOpenCommandPalette}
@@ -164,23 +184,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
         </button>
 
-
-        {/* Register Indicator */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
-          <span className="text-zinc-500">REGISTER:</span>
-          {isGovSector ? (
-            <span className="text-amber-400 font-semibold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              GOV / COMPLIANCE
-            </span>
-          ) : (
-            <span className="text-zinc-300 font-semibold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-              CIVILIAN-FIRST
-            </span>
-          )}
-        </div>
-
         {/* System Health */}
         <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25">
           <span className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
@@ -206,12 +209,25 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Voice Specification Guide Modal Button */}
         <button
           onClick={onOpenVoiceGuide}
-          className="px-2.5 py-1.5 rounded-md bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-all text-xs font-mono flex items-center gap-1.5"
+          className="px-2.5 py-1.5 rounded-md bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-all text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           title="View Atlantis Tone, Register & Architecture Specification"
         >
           <BookOpen size={14} className="text-blue-400" />
           <span className="hidden sm:inline">Tone Spec</span>
         </button>
+
+        {/* Model Providers & API Keys Settings Button */}
+        {onOpenModelSettings && (
+          <button
+            onClick={onOpenModelSettings}
+            className="px-2.5 py-1.5 rounded-md bg-blue-950/40 hover:bg-blue-900/50 border border-blue-800/60 hover:border-blue-700 text-blue-300 hover:text-white transition-all text-xs font-mono flex items-center gap-1.5 shadow-sm cursor-pointer"
+            title="Model Providers & API Settings (Gemini, ChatGPT, Claude)"
+          >
+            <Key size={13} className="text-blue-400" />
+            <span className="hidden md:inline font-semibold">Model Settings</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Provider Hub Active" />
+          </button>
+        )}
 
         {/* Firebase Authentication & Cloud Sync */}
         {currentUser ? (

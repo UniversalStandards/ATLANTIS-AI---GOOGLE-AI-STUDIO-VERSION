@@ -6,7 +6,8 @@ import type {
   SafetyAuditLog, 
   PersonalizationData,
   LearnedPreferences,
-  ImportedConversation
+  ImportedConversation,
+  UnconfirmedConversation
 } from './types';
 
 export class AtlantisDatabase extends Dexie {
@@ -16,6 +17,7 @@ export class AtlantisDatabase extends Dexie {
   safetyLogs!: Table<SafetyAuditLog, number>;
   personalization!: Table<PersonalizationData, string>;
   importedConversations!: Table<ImportedConversation, string>;
+  unconfirmedConversations!: Table<UnconfirmedConversation, string>;
 
   constructor() {
     super('AtlantisDB');
@@ -34,6 +36,16 @@ export class AtlantisDatabase extends Dexie {
       safetyLogs: '++id, missionId, timestamp, checkType, status',
       personalization: 'key, lastUpdated',
       importedConversations: 'id, createdAt, importedAt, title, platform, sourceFormat, activeForContext'
+    });
+
+    this.version(3).stores({
+      missions: '++id, timestamp, title, sector, status, topology',
+      agents: 'nodeId, missionId, parentId, depth, status, role',
+      semanticMemory: '++id, trigger, context, confidence, timestamp',
+      safetyLogs: '++id, missionId, timestamp, checkType, status',
+      personalization: 'key, lastUpdated',
+      importedConversations: 'id, createdAt, importedAt, title, platform, sourceFormat, activeForContext',
+      unconfirmedConversations: 'id, stagedAt, title, platform, sourceFormat, status'
     });
   }
 }
@@ -361,4 +373,38 @@ export async function getActiveContextConversations(_uid?: string): Promise<Impo
 // Convenient aliases
 export const getActiveImportedConversations = getActiveContextConversations;
 export const toggleConversationActive = toggleConversationContextActive;
+
+// Helper methods for Unconfirmed (Pending Review) Conversations
+export async function saveUnconfirmedConversationLocal(conv: UnconfirmedConversation | ImportedConversation): Promise<void> {
+  const unconfirmed: UnconfirmedConversation = {
+    ...conv,
+    stagedAt: (conv as UnconfirmedConversation).stagedAt || Date.now(),
+    status: (conv as UnconfirmedConversation).status || 'pending_review'
+  };
+  await db.unconfirmedConversations.put(unconfirmed);
+}
+
+export async function saveUnconfirmedConversationsBatchLocal(convs: (UnconfirmedConversation | ImportedConversation)[]): Promise<void> {
+  const items: UnconfirmedConversation[] = convs.map(c => ({
+    ...c,
+    stagedAt: (c as UnconfirmedConversation).stagedAt || Date.now(),
+    status: (c as UnconfirmedConversation).status || 'pending_review'
+  }));
+  await db.unconfirmedConversations.bulkPut(items);
+}
+
+export async function getUnconfirmedConversationsLocal(): Promise<UnconfirmedConversation[]> {
+  return await db.unconfirmedConversations.reverse().sortBy('stagedAt');
+}
+
+export async function deleteUnconfirmedConversationLocal(id: string): Promise<void> {
+  await db.unconfirmedConversations.delete(id);
+}
+
+export async function clearUnconfirmedConversationsLocal(): Promise<void> {
+  await db.unconfirmedConversations.clear();
+}
+
+export const clearAllUnconfirmedConversationsLocal = clearUnconfirmedConversationsLocal;
+
 
